@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { connectWallet, getCurrentAccount } from "../web3/wallet";
+import DisconnectModal from "./DisconnectModal";
+import ConfirmLogoutModal from "./ConfirmLogoutModal";
 
 export default function WalletButton() {
   const [account, setAccount] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const [confirmOpen, setConfirmOpen] = useState(false); // NEW
+  const [showLogoutModal, setShowLogoutModal] = useState(false); // modal hướng dẫn sau logout
 
   // Load account nếu site đã từng connect
   useEffect(() => {
@@ -12,7 +16,8 @@ export default function WalletButton() {
       const acc = await getCurrentAccount();
       if (acc) {
         setAccount(acc);
-        setShowLogoutModal(false); // nếu đang mở modal logout thì đóng lại
+        setShowLogoutModal(false);
+        setConfirmOpen(false);
       }
     })();
 
@@ -22,12 +27,16 @@ export default function WalletButton() {
       const acc = accs?.[0] || "";
       setAccount(acc);
 
-      // Nếu có account => chắc chắn đang connect => không được hiện modal "đăng xuất"
-      if (acc) setShowLogoutModal(false);
+      // Nếu có account => đang connect => đóng các modal
+      if (acc) {
+        setShowLogoutModal(false);
+        setConfirmOpen(false);
+      }
     };
 
     window.ethereum.on("accountsChanged", onAccountsChanged);
-    return () => window.ethereum.removeListener("accountsChanged", onAccountsChanged);
+    return () =>
+      window.ethereum.removeListener("accountsChanged", onAccountsChanged);
   }, []);
 
   // Kết nối ví
@@ -39,9 +48,9 @@ export default function WalletButton() {
       }
 
       setLoading(true);
-      setShowLogoutModal(false); // connect lại thì đóng modal logout (nếu còn)
+      setShowLogoutModal(false);
+      setConfirmOpen(false);
 
-      // Ép MetaMask hỏi lại quyền account (luôn bật popup)
       await window.ethereum.request({
         method: "wallet_requestPermissions",
         params: [{ eth_accounts: {} }],
@@ -50,7 +59,8 @@ export default function WalletButton() {
       const res = await connectWallet();
       if (res?.account) {
         setAccount(res.account);
-        setShowLogoutModal(false); // connect thành công => đóng modal
+        setShowLogoutModal(false);
+        setConfirmOpen(false);
       }
     } catch (err) {
       console.error(err);
@@ -60,10 +70,10 @@ export default function WalletButton() {
     }
   };
 
-  // Đăng xuất (frontend)
+  // Đăng xuất (frontend) - chỉ gọi khi đã confirm
   const onLogout = () => {
     setAccount("");
-    setShowLogoutModal(true); // CHỈ bật modal ở đây
+    setShowLogoutModal(true); // hiện modal hướng dẫn ngắt kết nối thật
   };
 
   const btnBase = {
@@ -80,7 +90,6 @@ export default function WalletButton() {
 
   return (
     <>
-      {/* NÚT */}
       {!account ? (
         <button
           onClick={onConnect}
@@ -107,8 +116,9 @@ export default function WalletButton() {
             ✅ {account.slice(0, 6)}...{account.slice(-4)}
           </div>
 
+          {/* đổi: bấm là hỏi xác nhận */}
           <button
-            onClick={onLogout}
+            onClick={() => setConfirmOpen(true)}
             style={{
               ...btnBase,
               background: "transparent",
@@ -120,54 +130,21 @@ export default function WalletButton() {
         </div>
       )}
 
-      {/* MODAL LOGOUT - CHỈ HIỆN KHI showLogoutModal = true */}
-      {showLogoutModal && (
-        <div
-          onClick={() => setShowLogoutModal(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 22,
-              minWidth: 360,
-              textAlign: "center",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
-              ✅ Đã đăng xuất khỏi ví
-            </div>
+      {/* MODAL XÁC NHẬN */}
+      <ConfirmLogoutModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onLogout();
+        }}
+      />
 
-            <button
-              onClick={() => setShowLogoutModal(false)}
-              style={{
-                width: "100%",
-                padding: "10px 16px",
-                borderRadius: 12,
-                border: "none",
-                background: "#111827",
-                color: "white",
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
+      {/* MODAL HƯỚNG DẪN SAU KHI LOGOUT */}
+      <DisconnectModal
+        open={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+      />
     </>
   );
 }
