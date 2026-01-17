@@ -1,9 +1,5 @@
 export const CONTRACTS = {
-  // key theo chainIdDec
-  1337: {
-    CertificateRegistry: "0xYOUR_GANACHE_CONTRACT_ADDRESS",
-  },
-  11155111: {
-    CertificateRegistry: "0xYOUR_SEPOLIA_CONTRACT_ADDRESS",
+  338: {
+    CertificateRegistry: "0xf221c3Bf7F0031eA3720531EB34274398c785A55",
   },
 };
