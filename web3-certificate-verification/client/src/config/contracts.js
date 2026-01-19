@@ -1,5 +1,6 @@
 export const CONTRACTS = {
-  338: {
-    CertificateRegistry: "0xf221c3Bf7F0031eA3720531EB34274398c785A55",
+  11155111: {
+    // Sepolia
+    CertificateRegistry: "0x82b7351AAe814ca2797bA5FF56097A623D8bae8E",
   },
 };

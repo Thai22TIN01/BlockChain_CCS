@@ -9,6 +9,12 @@
 		"inputs": [
 			{
 				"indexed": false,
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
 				"internalType": "string",
 				"name": "studentId",
 				"type": "string"
@@ -40,9 +46,9 @@
 		"inputs": [
 			{
 				"indexed": false,
-				"internalType": "string",
-				"name": "studentId",
-				"type": "string"
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
 			},
 			{
 				"indexed": false,
@@ -60,10 +66,51 @@
 				"internalType": "string",
 				"name": "_studentId",
 				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_studentName",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_certificateName",
+				"type": "string"
+			}
+		],
+		"name": "issueCertificate",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_id",
+				"type": "uint256"
+			}
+		],
+		"name": "revokeCertificate",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_id",
+				"type": "uint256"
 			}
 		],
 		"name": "getCertificate",
 		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			},
 			{
 				"internalType": "string",
 				"name": "",
@@ -99,21 +146,30 @@
 				"internalType": "string",
 				"name": "_studentId",
 				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_studentName",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_certificateName",
-				"type": "string"
 			}
 		],
-		"name": "issueCertificate",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"name": "getCertificatesOfStudent",
+		"outputs": [
+			{
+				"internalType": "uint256[]",
+				"name": "",
+				"type": "uint256[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "nextCertificateId",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -127,19 +183,6 @@
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "_studentId",
-				"type": "string"
-			}
-		],
-		"name": "revokeCertificate",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]
