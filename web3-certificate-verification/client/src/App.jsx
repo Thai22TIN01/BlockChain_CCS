@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Verify from "./pages/Verify";
 import Issue from "./pages/Issue";
@@ -9,6 +10,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Navbar />
+
       <Routes>
         <Route path="/" element={<Verify />} />
         <Route path="/cap" element={<Issue />} />
