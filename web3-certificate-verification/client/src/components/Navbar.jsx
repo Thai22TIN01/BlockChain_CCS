@@ -46,8 +46,8 @@ export default function Navbar() {
           <NavLink to="/thu-hoi" style={linkStyle}>
             Thu hồi
           </NavLink>
-          <NavLink to="/cua-toi" style={linkStyle}>
-            Của tôi
+          <NavLink to="/danh-sach-chung-chi" style={linkStyle}>
+          Danh sách chứng chỉ
           </NavLink>
         </div>
 
