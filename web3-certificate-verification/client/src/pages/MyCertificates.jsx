@@ -1,25 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getAllCertificates, getContractOwner } from "../web3/certificate";
+import { getCurrentAccount } from "../web3/wallet";
 
 export default function MyCertificates() {
-  // Mock data for frontend UI demonstration
-  // In real implementation, this would fetch from blockchain based on connected wallet
-  const [certificates] = useState([
-    // Sample certificates - replace with actual blockchain data
-    {
-      studentId: "SV001",
-      studentName: "Nguyễn Văn A",
-      certificateName: "Chứng chỉ Blockchain Developer",
-      issuedAt: new Date("2024-01-15").toLocaleString("vi-VN"),
-      revoked: false,
-    },
-    {
-      studentId: "SV001",
-      studentName: "Nguyễn Văn A",
-      certificateName: "Chứng chỉ Web3 Fundamentals",
-      issuedAt: new Date("2024-02-20").toLocaleString("vi-VN"),
-      revoked: false,
-    },
-  ]);
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [error, setError] = useState("");
+
+  // Check if current wallet is admin and fetch certificates
+  useEffect(() => {
+    const checkAdminAndFetch = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        if (!window.ethereum) {
+          setError("Chưa cài MetaMask");
+          setCheckingAdmin(false);
+          setLoading(false);
+          return;
+        }
+
+        const currentAccount = await getCurrentAccount();
+        if (!currentAccount) {
+          setError("Vui lòng kết nối ví MetaMask");
+          setCheckingAdmin(false);
+          setLoading(false);
+          return;
+        }
+
+        // Check if current wallet is admin
+        const owner = await getContractOwner();
+        const adminStatus =
+          owner.toLowerCase() === currentAccount.toLowerCase();
+        setIsAdmin(adminStatus);
+        setCheckingAdmin(false);
+
+        if (!adminStatus) {
+          setError("Chỉ admin mới có quyền xem danh sách tất cả chứng chỉ");
+          setLoading(false);
+          return;
+        }
+
+        // Admin: Fetch all certificates
+        const allCerts = await getAllCertificates();
+        setCertificates(allCerts);
+      } catch (err) {
+        console.error("Error checking admin or fetching certificates:", err);
+        setError("Lỗi khi tải dữ liệu: " + (err.message || "Không thể kết nối"));
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+        setCheckingAdmin(false);
+      }
+    };
+
+    checkAdminAndFetch();
+
+    // Re-check when account changes
+    if (window.ethereum) {
+      const onAccountsChanged = () => {
+        checkAdminAndFetch();
+      };
+      window.ethereum.on("accountsChanged", onAccountsChanged);
+      return () => {
+        window.ethereum.removeListener("accountsChanged", onAccountsChanged);
+      };
+    }
+  }, []);
 
   const hasCertificates = certificates && certificates.length > 0;
 
@@ -53,10 +103,72 @@ export default function MyCertificates() {
             textAlign: "center",
           }}
         >
-          Chứng chỉ của tôi
+          Danh sách chứng chỉ
         </h2>
 
-        {!hasCertificates ? (
+        {loading || checkingAdmin ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "#6b7280",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "48px",
+                marginBottom: "16px",
+              }}
+            >
+              ⏳
+            </div>
+            <p
+              style={{
+                fontSize: "18px",
+                fontWeight: 500,
+                marginBottom: "8px",
+                color: "#374151",
+              }}
+            >
+              Đang tải dữ liệu...
+            </p>
+            <p style={{ fontSize: "15px", color: "#9ca3af" }}>
+              Vui lòng đợi trong giây lát
+            </p>
+          </div>
+        ) : error ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "#dc2626",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "48px",
+                marginBottom: "16px",
+              }}
+            >
+              {!isAdmin ? "🚫" : "❌"}
+            </div>
+            <p
+              style={{
+                fontSize: "18px",
+                fontWeight: 500,
+                marginBottom: "8px",
+                color: "#dc2626",
+              }}
+            >
+              {error}
+            </p>
+            {!isAdmin && (
+              <p style={{ fontSize: "15px", color: "#9ca3af", marginTop: "8px" }}>
+                Chỉ ví admin (ví deploy contract) mới có quyền truy cập trang này
+              </p>
+            )}
+          </div>
+        ) : !hasCertificates ? (
           <div
             style={{
               textAlign: "center",
@@ -83,7 +195,7 @@ export default function MyCertificates() {
               Chưa có chứng chỉ nào
             </p>
             <p style={{ fontSize: "15px", color: "#9ca3af" }}>
-              Các chứng chỉ của bạn sẽ được hiển thị tại đây khi được cấp
+              Chưa có chứng chỉ nào được cấp trên hệ thống
             </p>
           </div>
         ) : (
@@ -92,16 +204,16 @@ export default function MyCertificates() {
               style={{
                 marginBottom: "20px",
                 padding: "12px 16px",
-                backgroundColor: "#eff6ff",
-                border: "1px solid #bfdbfe",
+                backgroundColor: "#f0fdf4",
+                border: "1px solid #bbf7d0",
                 borderRadius: "8px",
                 fontSize: "14px",
-                color: "#1e40af",
+                color: "#16a34a",
                 textAlign: "center",
+                fontWeight: 500,
               }}
             >
-              💡 <strong>Chế độ xem:</strong> Đây là giao diện frontend mẫu.
-              Dữ liệu thực sẽ được lấy từ blockchain khi tích hợp.
+              ✅ <strong>Quyền admin:</strong> Đang hiển thị tất cả chứng chỉ đã được cấp
             </div>
 
             <div
@@ -113,7 +225,7 @@ export default function MyCertificates() {
             >
               {certificates.map((cert, index) => (
                 <div
-                  key={index}
+                  key={cert.certificateId || index}
                   style={{
                     padding: "24px",
                     backgroundColor: "#f9fafb",
@@ -138,6 +250,19 @@ export default function MyCertificates() {
                     }}
                   >
                     <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Mã chứng chỉ:{" "}
+                        <span style={{ color: "#3b82f6" }}>
+                          {cert.certificateId}
+                        </span>
+                      </div>
                       <h3
                         style={{
                           margin: 0,
