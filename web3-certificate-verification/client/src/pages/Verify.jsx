@@ -1,197 +1,310 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { getCertificate, getCertificatesOfStudent } from "../web3/certificate";
 
-function Badge({ type }) {
-  const map = {
-    valid: { text: "✅ HỢP LỆ", bg: "#DCFCE7", color: "#166534" },
-    revoked: { text: "⚠️ ĐÃ BỊ THU HỒI", bg: "#FFEDD5", color: "#9A3412" },
-    not_found: { text: "❌ KHÔNG TỒN TẠI", bg: "#FEE2E2", color: "#991B1B" },
+export default function Verify() {
+  const [studentId, setStudentId] = useState("");
+  const [certificates, setCertificates] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleVerify = async () => {
+    try {
+      setError("");
+      setCertificates([]);
+      setLoading(true);
+
+      // Ensure studentId is treated strictly as a string
+      const trimmedStudentId = studentId.trim();
+      console.log("🔍 [DEBUG] Student ID being sent:", trimmedStudentId);
+      console.log("🔍 [DEBUG] Student ID type:", typeof trimmedStudentId);
+      console.log("🔍 [DEBUG] Student ID length:", trimmedStudentId.length);
+
+      if (!trimmedStudentId) {
+        throw new Error("Vui lòng nhập mã sinh viên");
+      }
+
+      // Call getCertificatesOfStudent with string studentId
+      console.log("🔍 [DEBUG] Calling getCertificatesOfStudent with studentId:", trimmedStudentId);
+      const certificateIds = await getCertificatesOfStudent(trimmedStudentId);
+      console.log("🔍 [DEBUG] Certificate IDs returned:", certificateIds);
+      console.log("🔍 [DEBUG] Certificate IDs length:", certificateIds?.length || 0);
+      console.log("🔍 [DEBUG] Certificate IDs type:", Array.isArray(certificateIds));
+
+      if (!certificateIds || certificateIds.length === 0) {
+        setError("❌ Không tìm thấy chứng chỉ nào cho sinh viên này");
+        setCertificates([]);
+        return;
+      }
+
+      // Convert BigNumber array to number array and fetch each certificate
+      const ids = certificateIds.map((id) => Number(id));
+      console.log("🔍 [DEBUG] Converted certificate IDs:", ids);
+
+      // Use Promise.all to fetch all certificates
+      console.log("🔍 [DEBUG] Fetching certificates for IDs:", ids);
+      const certPromises = ids.map(async (id) => {
+        console.log("🔍 [DEBUG] Fetching certificate ID:", id);
+        const cert = await getCertificate(id);
+        console.log("🔍 [DEBUG] Certificate fetched for ID", id, ":", cert);
+        return {
+          certificateId: id.toString(),
+          studentId: cert[1],
+          studentName: cert[2],
+          certificateName: cert[3],
+          issuedAt: new Date(Number(cert[4]) * 1000).toLocaleString(),
+          revoked: cert[5],
+        };
+      });
+
+      const fetchedCertificates = await Promise.all(certPromises);
+      console.log("🔍 [DEBUG] All certificates fetched:", fetchedCertificates);
+      setCertificates(fetchedCertificates);
+    } catch (err) {
+      console.error("❌ [ERROR] Verify error:", err);
+      setCertificates([]);
+      setError("❌ Lỗi khi tải danh sách chứng chỉ: " + (err.message || "Không tìm thấy"));
+    } finally {
+      setLoading(false);
+    }
   };
-  const s = map[type];
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "6px 10px",
-        borderRadius: 999,
-        background: s.bg,
-        color: s.color,
-        fontWeight: 800,
-        fontSize: 13,
-      }}
-    >
-      {s.text}
-    </span>
-  );
-}
 
-function ResultCard({ data }) {
   return (
     <div
       style={{
-        marginTop: 14,
-        border: "1px solid #E5E7EB",
-        borderRadius: 16,
-        padding: 16,
-        background: "white",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        minHeight: "calc(100vh - 200px)",
+        padding: "40px 20px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>KẾT QUẢ XÁC THỰC</div>
-        <Badge type={data.status} />
-      </div>
-
-      {data.status === "not_found" ? (
-        <div style={{ marginTop: 10, color: "#374151" }}>
-          Chứng chỉ này không được ghi nhận trên hệ thống.
-        </div>
-      ) : (
-        <>
-          <div style={{ marginTop: 12, color: "#111827", lineHeight: 1.8 }}>
-            <div>
-              <b>Mã chứng chỉ:</b> {data.certificateId}
-            </div>
-            <div>
-              <b>Loại chứng chỉ:</b> {data.type}
-            </div>
-            <div>
-              <b>Đơn vị cấp:</b> {data.issuer}
-            </div>
-            <div>
-              <b>Ngày cấp:</b> {data.issuedDate}
-            </div>
-            <div style={{ wordBreak: "break-all" }}>
-              <b>Mã giao dịch blockchain:</b> {data.txHash}
-              <span style={{ opacity: 0.65 }}> (để sau)</span>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <button
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #E5E7EB",
-                background: "#F9FAFB",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-              onClick={() => alert("Bước blockchain để sau. Hiện tại chỉ làm giao diện.")}
-            >
-              Xem trên blockchain
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function Verify() {
-  const [code, setCode] = useState("");
-  const [result, setResult] = useState(null);
-
-  // DỮ LIỆU GIẢ LẬP (để demo UI trước)
-  const mockDB = useMemo(
-    () => ({
-      "CC-ENG-2025-001": {
-        status: "valid",
-        certificateId: "CC-ENG-2025-001",
-        type: "Chứng chỉ Tiếng Anh",
-        issuer: "Trung tâm ABC",
-        issuedDate: "12/05/2025",
-        txHash: "0xA92F...D31",
-      },
-      "CC-IT-2025-007": {
-        status: "revoked",
-        certificateId: "CC-IT-2025-007",
-        type: "Chứng chỉ Tin học",
-        issuer: "Trường XYZ",
-        issuedDate: "20/06/2025",
-        txHash: "0x19B0...9AA",
-      },
-    }),
-    []
-  );
-
-  const onVerify = () => {
-    const key = code.trim().toUpperCase();
-    if (!key) {
-      alert("Vui lòng nhập mã chứng chỉ.");
-      return;
-    }
-    const found = mockDB[key];
-    if (!found) {
-      setResult({ status: "not_found" });
-    } else {
-      setResult(found);
-    }
-  };
-
-  return (
-    <div style={{ background: "#F3F4F6", minHeight: "calc(100vh - 72px)" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px" }}>
-        {/* Tiêu đề */}
-        <div style={{ textAlign: "center", marginBottom: 18 }}>
-          <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
-            HỆ THỐNG XÁC THỰC CHỨNG CHỈ SỐ
-          </div>
-          <div style={{ marginTop: 6, color: "#4B5563" }}>
-            Ứng dụng công nghệ blockchain để kiểm tra tính hợp lệ của chứng chỉ
-          </div>
-        </div>
-
-        {/* Khối nhập + nút */}
-        <div
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 800,
+          backgroundColor: "#ffffff",
+          borderRadius: "12px",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)",
+          padding: "40px",
+        }}
+      >
+        <h2
           style={{
-            background: "white",
-            borderRadius: 18,
-            padding: 18,
-            border: "1px solid #E5E7EB",
+            marginTop: 0,
+            marginBottom: "30px",
+            fontSize: "28px",
+            fontWeight: 600,
+            color: "#1f2937",
+            textAlign: "center",
           }}
         >
-          <div style={{ fontWeight: 800, marginBottom: 8, color: "#111827" }}>
-            Mã chứng chỉ
+          Xác thực chứng chỉ
+        </h2>
+
+        <div style={{ marginBottom: "20px" }}>
+          <input
+            placeholder="Nhập mã sinh viên"
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                handleVerify();
+              }
+            }}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              fontSize: "16px",
+              border: "2px solid #e5e7eb",
+              borderRadius: "8px",
+              outline: "none",
+              transition: "border-color 0.2s",
+              boxSizing: "border-box",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#3b82f6";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e5e7eb";
+            }}
+          />
+        </div>
+
+        <button
+          onClick={handleVerify}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "14px 24px",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#ffffff",
+            backgroundColor: loading ? "#9ca3af" : "#3b82f6",
+            border: "none",
+            borderRadius: "8px",
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "background-color 0.2s, transform 0.1s",
+            boxShadow: loading
+              ? "none"
+              : "0 2px 4px rgba(59, 130, 246, 0.3)",
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = "#2563eb";
+              e.target.style.transform = "translateY(-1px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.target.style.backgroundColor = "#3b82f6";
+              e.target.style.transform = "translateY(0)";
+            }
+          }}
+        >
+          {loading ? "Đang tải..." : "Xem danh sách chứng chỉ"}
+        </button>
+
+        {error && (
+          <div
+            style={{
+              marginTop: "24px",
+              padding: "16px",
+              backgroundColor: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: "8px",
+              color: "#dc2626",
+              textAlign: "center",
+              fontSize: "15px",
+            }}
+          >
+            {error}
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Ví dụ: CC-ENG-2025-001"
+        )}
+
+        {certificates.length > 0 && (
+          <div style={{ marginTop: "32px" }}>
+            <h3
               style={{
-                flex: 1,
-                padding: "12px 14px",
-                borderRadius: 14,
-                border: "1px solid #D1D5DB",
-                outline: "none",
-                fontSize: 15,
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onVerify();
-              }}
-            />
-            <button
-              onClick={onVerify}
-              style={{
-                padding: "12px 16px",
-                borderRadius: 14,
-                border: "none",
-                background: "#4F46E5",
-                color: "white",
-                fontWeight: 900,
-                cursor: "pointer",
+                marginTop: 0,
+                marginBottom: "20px",
+                fontSize: "20px",
+                fontWeight: 600,
+                color: "#1f2937",
+                textAlign: "center",
               }}
             >
-              XÁC THỰC CHỨNG CHỈ
-            </button>
+              Danh sách chứng chỉ ({certificates.length})
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+              }}
+            >
+              {certificates.map((cert, index) => (
+                <div
+                  key={index}
+                  style={{
+                    padding: "20px",
+                    backgroundColor: "#f9fafb",
+                    borderRadius: "8px",
+                    border: "1px solid #e5e7eb",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Mã chứng chỉ:{" "}
+                        <span style={{ color: "#3b82f6" }}>
+                          {cert.certificateId}
+                        </span>
+                      </div>
+                      <h4
+                        style={{
+                          margin: 0,
+                          fontSize: "18px",
+                          fontWeight: 600,
+                          color: "#1f2937",
+                        }}
+                      >
+                        {cert.certificateName}
+                      </h4>
+                    </div>
+                    <div
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        backgroundColor: cert.revoked
+                          ? "#fef2f2"
+                          : "#f0fdf4",
+                        color: cert.revoked ? "#dc2626" : "#16a34a",
+                      }}
+                    >
+                      {cert.revoked ? "❌ Đã thu hồi" : "✅ Hợp lệ"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                      gap: "12px",
+                      paddingTop: "12px",
+                      borderTop: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Tên
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#1f2937" }}>
+                        {cert.studentName}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Ngày cấp
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#1f2937" }}>
+                        {cert.issuedAt}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <div style={{ marginTop: 10, color: "#6B7280", fontSize: 13 }}>
-            Gợi ý mã demo: <b>CC-ENG-2025-001</b> (hợp lệ), <b>CC-IT-2025-007</b> (thu hồi)
-          </div>
-
-          {/* Kết quả */}
-          {result && <ResultCard data={result} />}
-        </div>
+        )}
       </div>
     </div>
   );
