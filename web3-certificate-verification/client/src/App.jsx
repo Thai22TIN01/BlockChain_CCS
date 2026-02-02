@@ -15,7 +15,11 @@ export default function App() {
         <Route path="/" element={<Verify />} />
         <Route path="/cap" element={<Issue />} />
         <Route path="/thu-hoi" element={<Revoke />} />
-        <Route path="/cua-toi" element={<MyCertificates />} />
+        <Route
+  path="/danh-sach-chung-chi"
+  element={<MyCertificates />}
+/>
+
       </Routes>
     </BrowserRouter>
   );

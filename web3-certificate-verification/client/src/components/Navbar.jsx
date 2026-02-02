@@ -1,5 +1,9 @@
 import { NavLink } from "react-router-dom";
 import WalletButton from "./WalletButton";
+import { useEffect, useState } from "react";
+
+// 👉 ví admin (đúng ví deploy contract)
+const ADMIN_ADDRESS = "0xa473930Bd3cd3aA3AC5d30C6ec38b2C6e270546b";
 
 const linkStyle = ({ isActive }) => ({
   padding: "10px 12px",
@@ -11,6 +15,30 @@ const linkStyle = ({ isActive }) => ({
 });
 
 export default function Navbar() {
+  const [account, setAccount] = useState(null);
+
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0].toLowerCase());
+      }
+    });
+
+    // lắng nghe đổi ví
+    window.ethereum.on("accountsChanged", (accounts) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0].toLowerCase());
+      } else {
+        setAccount(null);
+      }
+    });
+  }, []);
+
+  const isAdmin =
+    account && account === ADMIN_ADDRESS.toLowerCase();
+
   return (
     <div style={{ background: "#111827" }}>
       <div
@@ -23,7 +51,7 @@ export default function Navbar() {
           gap: 12,
         }}
       >
-        <div style={{ color: "white", fontWeight: 800, letterSpacing: 0.5 }}>
+        <div style={{ color: "white", fontWeight: 800 }}>
           CHỨNG CHỈ WEB3
         </div>
 
@@ -40,15 +68,22 @@ export default function Navbar() {
           <NavLink to="/" style={linkStyle}>
             Xác thực
           </NavLink>
-          <NavLink to="/cap" style={linkStyle}>
-            Cấp
-          </NavLink>
-          <NavLink to="/thu-hoi" style={linkStyle}>
-            Thu hồi
-          </NavLink>
-          <NavLink to="/danh-sach-chung-chi" style={linkStyle}>
-          Danh sách chứng chỉ
-          </NavLink>
+
+          {isAdmin && (
+            <>
+              <NavLink to="/cap" style={linkStyle}>
+                Cấp
+              </NavLink>
+
+              <NavLink to="/thu-hoi" style={linkStyle}>
+                Thu hồi
+              </NavLink>
+
+              <NavLink to="/danh-sach-chung-chi" style={linkStyle}>
+                Danh sách chứng chỉ
+              </NavLink>
+            </>
+          )}
         </div>
 
         <div style={{ marginLeft: "auto" }}>
