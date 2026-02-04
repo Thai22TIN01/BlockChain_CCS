@@ -38,7 +38,16 @@ export async function revokeCertificate(certificateId) {
 
 // ✅ TRA CỨU THEO ID
 export async function getCertificate(certificateId) {
-  const contract = await getContract();
+  if (!window.ethereum) throw new Error("Chưa cài MetaMask");
+
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const network = await provider.getNetwork();
+  const address =
+    CONTRACTS[Number(network.chainId)]?.CertificateRegistry;
+
+  if (!address) throw new Error("Sai network");
+
+  const contract = new ethers.Contract(address, abi, provider);
   return contract.getCertificate(certificateId);
 }
 
@@ -61,10 +70,11 @@ export async function getCertificatesOfStudent(studentId) {
 export async function getContractOwner() {
   if (!window.ethereum) throw new Error("Chưa cài MetaMask");
 
+  // Chỉ dùng BrowserProvider, không gọi eth_requestAccounts hay wallet_switchEthereumChain
   const provider = new ethers.BrowserProvider(window.ethereum);
   const network = await provider.getNetwork();
-  const address =
-    CONTRACTS[Number(network.chainId)]?.CertificateRegistry;
+  const chainId = Number(network.chainId);
+  const address = CONTRACTS[chainId]?.CertificateRegistry;
 
   if (!address) throw new Error("Sai network");
 
@@ -91,10 +101,11 @@ export async function getNextCertificateId() {
 export async function getAllCertificates() {
   if (!window.ethereum) throw new Error("Chưa cài MetaMask");
 
+  // Chỉ dùng BrowserProvider, không gọi eth_requestAccounts hay wallet_switchEthereumChain
   const provider = new ethers.BrowserProvider(window.ethereum);
   const network = await provider.getNetwork();
-  const address =
-    CONTRACTS[Number(network.chainId)]?.CertificateRegistry;
+  const chainId = Number(network.chainId);
+  const address = CONTRACTS[chainId]?.CertificateRegistry;
 
   if (!address) throw new Error("Sai network");
 
@@ -127,6 +138,7 @@ export async function getAllCertificates() {
       studentName: cert[2],
       certificateName: cert[3],
       issuedAt: new Date(Number(cert[4]) * 1000).toLocaleString("vi-VN"),
+      issuedAtTimestamp: Number(cert[4]), // Raw timestamp in seconds for filtering
       revoked: cert[5],
     }));
 }

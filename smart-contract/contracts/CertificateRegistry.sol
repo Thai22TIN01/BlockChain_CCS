@@ -25,6 +25,7 @@ contract CertificateRegistry {
 
     mapping(uint256 => Certificate) private certificates;
     mapping(string => uint256[]) private certificatesOfStudent;
+    mapping(string => mapping(string => bool)) public hasCertificate; // studentId => certificateName => bool
 
     event CertificateIssued(
         uint256 id,
@@ -41,6 +42,11 @@ contract CertificateRegistry {
         string memory _studentName,
         string memory _certificateName
     ) public onlyOwner {
+        require(
+            !hasCertificate[_studentId][_certificateName],
+            "Certificate already issued"
+        );
+
         uint256 id = nextCertificateId++;
 
         certificates[id] = Certificate(
@@ -53,6 +59,7 @@ contract CertificateRegistry {
         );
 
         certificatesOfStudent[_studentId].push(id);
+        hasCertificate[_studentId][_certificateName] = true;
 
         emit CertificateIssued(
             id,
@@ -65,7 +72,14 @@ contract CertificateRegistry {
     // ✅ THU HỒI THEO ID
     function revokeCertificate(uint256 _id) public onlyOwner {
         require(certificates[_id].id != 0, "Khong ton tai");
-        certificates[_id].revoked = true;
+        Certificate storage cert = certificates[_id];
+        require(
+            hasCertificate[cert.studentId][cert.certificateName],
+            "Certificate not active"
+        );
+        
+        cert.revoked = true;
+        hasCertificate[cert.studentId][cert.certificateName] = false;
 
         emit CertificateRevoked(_id);
     }

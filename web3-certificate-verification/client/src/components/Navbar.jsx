@@ -39,8 +39,18 @@ export default function Navbar() {
   const isAdmin =
     account && account === ADMIN_ADDRESS.toLowerCase();
 
+  const linkStyleDark = ({ isActive }) => ({
+    padding: "10px 12px",
+    borderRadius: 10,
+    textDecoration: "none",
+    color: isActive ? "#0b0b0b" : "#b3b3b3",
+    background: isActive ? "#d4a73a" : "transparent",
+    fontWeight: isActive ? 700 : 500,
+    transition: "all 0.2s",
+  });
+
   return (
-    <div style={{ background: "#111827" }}>
+    <div style={{ background: "#0b0b0b", borderBottom: "1px solid rgba(212, 167, 58, 0.2)" }}>
       <div
         style={{
           maxWidth: 1100,
@@ -51,8 +61,8 @@ export default function Navbar() {
           gap: 12,
         }}
       >
-        <div style={{ color: "white", fontWeight: 800 }}>
-          CHỨNG CHỈ WEB3
+        <div style={{ color: "#d4a73a", fontWeight: 800, fontSize: "18px" }}>
+          HỆ THỐNG TRA CỨU CHỨNG CHỈ
         </div>
 
         <div
@@ -60,26 +70,27 @@ export default function Navbar() {
             display: "flex",
             gap: 8,
             marginLeft: 12,
-            background: "white",
+            background: "#1a1a1a",
             padding: 6,
             borderRadius: 14,
+            border: "1px solid rgba(212, 167, 58, 0.2)",
           }}
         >
-          <NavLink to="/" style={linkStyle}>
-            Xác thực
+          <NavLink to="/" style={linkStyleDark}>
+            Tra cứu
           </NavLink>
 
           {isAdmin && (
             <>
-              <NavLink to="/cap" style={linkStyle}>
+              <NavLink to="/cap" style={linkStyleDark}>
                 Cấp
               </NavLink>
 
-              <NavLink to="/thu-hoi" style={linkStyle}>
+              <NavLink to="/thu-hoi" style={linkStyleDark}>
                 Thu hồi
               </NavLink>
 
-              <NavLink to="/danh-sach-chung-chi" style={linkStyle}>
+              <NavLink to="/danh-sach-chung-chi" style={linkStyleDark}>
                 Danh sách chứng chỉ
               </NavLink>
             </>

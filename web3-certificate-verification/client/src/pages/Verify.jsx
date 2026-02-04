@@ -82,9 +82,10 @@ export default function Verify() {
         style={{
           width: "100%",
           maxWidth: 800,
-          backgroundColor: "#ffffff",
+          backgroundColor: "#111111",
           borderRadius: "12px",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)",
+          border: "1px solid rgba(212, 167, 58, 0.2)",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
           padding: "40px",
         }}
       >
@@ -94,11 +95,11 @@ export default function Verify() {
             marginBottom: "30px",
             fontSize: "28px",
             fontWeight: 600,
-            color: "#1f2937",
+            color: "#d4a73a",
             textAlign: "center",
           }}
         >
-          Xác thực chứng chỉ
+          Tra cứu chứng chỉ
         </h2>
 
         <div style={{ marginBottom: "20px" }}>
@@ -115,17 +116,19 @@ export default function Verify() {
               width: "100%",
               padding: "12px 16px",
               fontSize: "16px",
-              border: "2px solid #e5e7eb",
+              border: "2px solid rgba(212, 167, 58, 0.3)",
               borderRadius: "8px",
               outline: "none",
               transition: "border-color 0.2s",
               boxSizing: "border-box",
+              backgroundColor: "#1a1a1a",
+              color: "#b3b3b3",
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = "#3b82f6";
+              e.target.style.borderColor = "#d4a73a";
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = "#e5e7eb";
+              e.target.style.borderColor = "rgba(212, 167, 58, 0.3)";
             }}
           />
         </div>
@@ -138,25 +141,25 @@ export default function Verify() {
             padding: "14px 24px",
             fontSize: "16px",
             fontWeight: 600,
-            color: "#ffffff",
-            backgroundColor: loading ? "#9ca3af" : "#3b82f6",
+            color: "#0b0b0b",
+            backgroundColor: loading ? "#9ca3af" : "#d4a73a",
             border: "none",
             borderRadius: "8px",
             cursor: loading ? "not-allowed" : "pointer",
             transition: "background-color 0.2s, transform 0.1s",
             boxShadow: loading
               ? "none"
-              : "0 2px 4px rgba(59, 130, 246, 0.3)",
+              : "0 2px 4px rgba(212, 167, 58, 0.3)",
           }}
           onMouseEnter={(e) => {
             if (!loading) {
-              e.target.style.backgroundColor = "#2563eb";
+              e.target.style.backgroundColor = "#b8941f";
               e.target.style.transform = "translateY(-1px)";
             }
           }}
           onMouseLeave={(e) => {
             if (!loading) {
-              e.target.style.backgroundColor = "#3b82f6";
+              e.target.style.backgroundColor = "#d4a73a";
               e.target.style.transform = "translateY(0)";
             }
           }}
@@ -169,10 +172,10 @@ export default function Verify() {
             style={{
               marginTop: "24px",
               padding: "16px",
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fecaca",
+              backgroundColor: "rgba(220, 38, 38, 0.1)",
+              border: "1px solid rgba(220, 38, 38, 0.3)",
               borderRadius: "8px",
-              color: "#dc2626",
+              color: "#f87171",
               textAlign: "center",
               fontSize: "15px",
             }}
@@ -189,7 +192,7 @@ export default function Verify() {
                 marginBottom: "20px",
                 fontSize: "20px",
                 fontWeight: 600,
-                color: "#1f2937",
+                color: "#d4a73a",
                 textAlign: "center",
               }}
             >
@@ -207,9 +210,9 @@ export default function Verify() {
                   key={index}
                   style={{
                     padding: "20px",
-                    backgroundColor: "#f9fafb",
+                    backgroundColor: "#1a1a1a",
                     borderRadius: "8px",
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid rgba(212, 167, 58, 0.2)",
                   }}
                 >
                   <div
@@ -225,12 +228,12 @@ export default function Verify() {
                         style={{
                           fontSize: "12px",
                           fontWeight: 600,
-                          color: "#6b7280",
+                          color: "#b3b3b3",
                           marginBottom: "4px",
                         }}
                       >
                         Mã chứng chỉ:{" "}
-                        <span style={{ color: "#3b82f6" }}>
+                        <span style={{ color: "#d4a73a" }}>
                           {cert.certificateId}
                         </span>
                       </div>
@@ -239,7 +242,7 @@ export default function Verify() {
                           margin: 0,
                           fontSize: "18px",
                           fontWeight: 600,
-                          color: "#1f2937",
+                          color: "#d4a73a",
                         }}
                       >
                         {cert.certificateName}
@@ -252,9 +255,10 @@ export default function Verify() {
                         fontSize: "13px",
                         fontWeight: 600,
                         backgroundColor: cert.revoked
-                          ? "#fef2f2"
-                          : "#f0fdf4",
-                        color: cert.revoked ? "#dc2626" : "#16a34a",
+                          ? "rgba(220, 38, 38, 0.2)"
+                          : "rgba(16, 185, 129, 0.2)",
+                        color: cert.revoked ? "#f87171" : "#10b981",
+                        border: `1px solid ${cert.revoked ? "rgba(220, 38, 38, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
                       }}
                     >
                       {cert.revoked ? "❌ Đã thu hồi" : "✅ Hợp lệ"}
@@ -266,7 +270,7 @@ export default function Verify() {
                       gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
                       gap: "12px",
                       paddingTop: "12px",
-                      borderTop: "1px solid #e5e7eb",
+                      borderTop: "1px solid rgba(212, 167, 58, 0.2)",
                     }}
                   >
                     <div>
@@ -274,13 +278,13 @@ export default function Verify() {
                         style={{
                           fontSize: "12px",
                           fontWeight: 600,
-                          color: "#6b7280",
+                          color: "#b3b3b3",
                           marginBottom: "4px",
                         }}
                       >
                         Tên
                       </div>
-                      <div style={{ fontSize: "14px", color: "#1f2937" }}>
+                      <div style={{ fontSize: "14px", color: "#b3b3b3" }}>
                         {cert.studentName}
                       </div>
                     </div>
@@ -289,13 +293,13 @@ export default function Verify() {
                         style={{
                           fontSize: "12px",
                           fontWeight: 600,
-                          color: "#6b7280",
+                          color: "#b3b3b3",
                           marginBottom: "4px",
                         }}
                       >
                         Ngày cấp
                       </div>
-                      <div style={{ fontSize: "14px", color: "#1f2937" }}>
+                      <div style={{ fontSize: "14px", color: "#b3b3b3" }}>
                         {cert.issuedAt}
                       </div>
                     </div>

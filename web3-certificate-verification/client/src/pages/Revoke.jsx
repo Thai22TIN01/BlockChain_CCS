@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getCertificate, revokeCertificate } from "../web3/certificate";
+import { getCertificate, revokeCertificate, getCertificatesOfStudent } from "../web3/certificate";
 import { getCurrentAccount } from "../web3/wallet";
 import { ethers } from "ethers";
 import abi from "../abi/CertificateRegistry.json";
@@ -9,8 +9,11 @@ export default function Revoke() {
   const [studentId, setStudentId] = useState("");
   const [certificateId, setCertificateId] = useState("");
   const [certificateData, setCertificateData] = useState(null);
+  const [availableCertificates, setAvailableCertificates] = useState([]); // Danh sách chứng chỉ hợp lệ
+  const [studentName, setStudentName] = useState(""); // Tên sinh viên (lấy từ chứng chỉ đầu tiên)
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [info, setInfo] = useState(""); // Thông báo nhẹ
+  const [loadingCertificates, setLoadingCertificates] = useState(false); // Đang load danh sách chứng chỉ
   const [revoking, setRevoking] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
@@ -63,45 +66,91 @@ export default function Revoke() {
     }
   }, []);
 
-  const handleFetchCertificate = async () => {
+  // Load danh sách chứng chỉ khi nhập MSSV
+  const handleStudentIdChange = async (e) => {
+    const newStudentId = e.target.value;
+    setStudentId(newStudentId);
+    setCertificateId("");
+    setCertificateData(null);
+    setAvailableCertificates([]);
+    setStudentName("");
+    setInfo("");
+    setMessage("");
+
+    if (!newStudentId.trim()) {
+      return;
+    }
+
+    setLoadingCertificates(true);
     try {
-      setMessage("");
-      setCertificateData(null);
-      setLoading(true);
-
-      const trimmedId = certificateId.trim();
-      if (!trimmedId) {
-        setMessage("❌ Vui lòng nhập mã chứng chỉ");
-        setLoading(false);
+      const certificateIds = await getCertificatesOfStudent(newStudentId);
+      
+      if (!certificateIds || certificateIds.length === 0) {
+        setInfo("Sinh viên không có chứng chỉ hợp lệ để thu hồi");
+        setLoadingCertificates(false);
         return;
       }
 
-      const trimmedStudentId = studentId.trim();
-      if (!trimmedStudentId) {
-        setMessage("❌ Vui lòng nhập mã sinh viên để xác nhận");
-        setLoading(false);
-        return;
-      }
+      // Load thông tin từng chứng chỉ và filter chỉ lấy chưa bị thu hồi
+      const certificatePromises = certificateIds.map(async (certId) => {
+        try {
+          const cert = await getCertificate(certId);
+          return {
+            certificateId: cert[0].toString(),
+            certificateName: cert[3],
+            studentName: cert[2], // Lấy tên sinh viên
+            revoked: cert[5],
+          };
+        } catch (err) {
+          console.error(`Error loading certificate ${certId}:`, err);
+          return null;
+        }
+      });
 
-      const idNumber = Number(trimmedId);
-      if (isNaN(idNumber) || idNumber <= 0) {
-        setMessage("❌ Mã chứng chỉ phải là số hợp lệ");
-        setLoading(false);
-        return;
-      }
+      const certificates = await Promise.all(certificatePromises);
+      const validCertificates = certificates.filter(
+        (cert) => cert !== null && !cert.revoked
+      );
 
+      if (validCertificates.length === 0) {
+        setInfo("Sinh viên không có chứng chỉ hợp lệ để thu hồi");
+        setStudentName("");
+      } else {
+        setAvailableCertificates(validCertificates);
+        // Lấy tên sinh viên từ chứng chỉ đầu tiên (vì tên đã được chuẩn hóa)
+        setStudentName(validCertificates[0].studentName);
+        setInfo("");
+      }
+    } catch (err) {
+      // Không hiển thị lỗi đỏ khi sai network lúc chỉ kiểm tra MSSV
+      if (err.message && err.message.includes("Sai network")) {
+        setInfo("Không thể kiểm tra thông tin. Vui lòng chuyển sang mạng Sepolia để kiểm tra tự động.");
+      } else {
+        console.error("Error loading certificates:", err);
+        setInfo("Không thể tải danh sách chứng chỉ");
+      }
+      setStudentName("");
+    } finally {
+      setLoadingCertificates(false);
+    }
+  };
+
+  // Load thông tin chứng chỉ khi chọn từ dropdown
+  const handleCertificateSelect = async (e) => {
+    const selectedId = e.target.value;
+    setCertificateId(selectedId);
+    setCertificateData(null);
+    setMessage("");
+
+    if (!selectedId.trim()) {
+      return;
+    }
+
+    try {
+      const idNumber = Number(selectedId);
       const res = await getCertificate(idNumber);
-      const certificateStudentId = res[1];
 
-      // Verify that certificate belongs to the entered studentId
-      if (certificateStudentId !== trimmedStudentId) {
-        setCertificateData(null);
-        setMessage("❌ Mã chứng chỉ không thuộc sinh viên này");
-        setLoading(false);
-        return;
-      }
-
-      // StudentId matches - display certificate info
+      // Display certificate info
       setCertificateData({
         certificateId: res[0].toString(),
         studentId: res[1],
@@ -116,14 +165,12 @@ export default function Revoke() {
       console.error("Error fetching certificate:", err);
       setCertificateData(null);
       setMessage("❌ Không tìm thấy chứng chỉ với mã này");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleRevoke = async () => {
     if (!certificateData) {
-      setMessage("❌ Vui lòng tải thông tin chứng chỉ trước");
+      setMessage("❌ Vui lòng chọn chứng chỉ cần thu hồi");
       return;
     }
 
@@ -134,6 +181,16 @@ export default function Revoke() {
 
     if (!isAdmin) {
       setMessage("❌ Chỉ admin mới có quyền thu hồi chứng chỉ");
+      return;
+    }
+
+    if (!studentId.trim()) {
+      setMessage("❌ Vui lòng nhập mã sinh viên");
+      return;
+    }
+
+    if (!certificateId.trim()) {
+      setMessage("❌ Vui lòng chọn chứng chỉ cần thu hồi");
       return;
     }
 
@@ -151,6 +208,21 @@ export default function Revoke() {
         revoked: true,
       });
 
+      // Remove revoked certificate from available list
+      const updatedCertificates = availableCertificates.filter(
+        (cert) => cert.certificateId !== certificateData.certificateId
+      );
+      setAvailableCertificates(updatedCertificates);
+
+      // Reset certificate selection
+      setCertificateId("");
+
+      // Nếu không còn chứng chỉ nào, reset studentName
+      if (updatedCertificates.length === 0) {
+        setStudentName("");
+        setInfo("Sinh viên này hiện không còn chứng chỉ hợp lệ nào");
+      }
+
       setMessage("✅ Đã thu hồi chứng chỉ thành công!");
     } catch (err) {
       console.error("Error revoking certificate:", err);
@@ -160,23 +232,13 @@ export default function Revoke() {
     }
   };
 
-  // Clear certificate data if studentId changes after loading (force re-verification)
-  useEffect(() => {
-    if (certificateData) {
-      const trimmedStudentId = studentId.trim();
-      if (trimmedStudentId && certificateData.studentId !== trimmedStudentId) {
-        setCertificateData(null);
-        setMessage("");
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
-
   const canRevoke =
     certificateData &&
     !certificateData.revoked &&
     isAdmin &&
     !revoking &&
+    studentId.trim() &&
+    certificateId.trim() &&
     certificateData.studentId === studentId.trim();
 
   return (
@@ -193,9 +255,10 @@ export default function Revoke() {
         style={{
           width: "100%",
           maxWidth: 600,
-          backgroundColor: "#ffffff",
-          borderRadius: "12px",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)",
+          backgroundColor: "#111111",
+          borderRadius: "16px",
+          border: "1px solid rgba(212, 167, 58, 0.2)",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
           padding: "40px",
         }}
       >
@@ -205,7 +268,7 @@ export default function Revoke() {
             marginBottom: "30px",
             fontSize: "28px",
             fontWeight: 600,
-            color: "#1f2937",
+            color: "#d4a73a",
             textAlign: "center",
           }}
         >
@@ -213,137 +276,141 @@ export default function Revoke() {
         </h2>
 
         {/* Input Section */}
-        <div style={{ marginBottom: "20px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Mã sinh viên
-          </label>
+        <div style={{ marginBottom: "16px" }}>
           <input
-            placeholder="Nhập mã sinh viên (để xác nhận)"
+            placeholder="Nhập mã sinh viên (MSSV)"
             value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
+            onChange={handleStudentIdChange}
             style={{
               width: "100%",
               padding: "12px 16px",
               fontSize: "16px",
-              border: "2px solid #e5e7eb",
+              border: "2px solid rgba(212, 167, 58, 0.3)",
               borderRadius: "8px",
               outline: "none",
               transition: "border-color 0.2s",
               boxSizing: "border-box",
+              backgroundColor: "#1a1a1a",
+              color: "#b3b3b3",
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = "#3b82f6";
+              e.target.style.borderColor = "#d4a73a";
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = "#e5e7eb";
+              e.target.style.borderColor = "rgba(212, 167, 58, 0.3)";
             }}
           />
+          {loadingCertificates && (
+            <div
+              style={{
+                marginTop: "8px",
+                fontSize: "14px",
+                color: "#b3b3b3",
+                fontStyle: "italic",
+              }}
+            >
+              Đang tải danh sách chứng chỉ...
+            </div>
+          )}
         </div>
+
+        {/* Hiển thị tên sinh viên và tổng số chứng chỉ */}
+        {studentName && availableCertificates.length > 0 && (
+          <div style={{ marginBottom: "16px" }}>
+            <div
+              style={{
+                padding: "12px 16px",
+                backgroundColor: "#1a1a1a",
+                borderRadius: "8px",
+                border: "1px solid rgba(212, 167, 58, 0.2)",
+                fontSize: "15px",
+                color: "#b3b3b3",
+              }}
+            >
+              <div style={{ marginBottom: "8px" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>
+                  Tên sinh viên:{" "}
+                </span>
+                <span style={{ color: "#d4a73a", fontWeight: 500 }}>
+                  {studentName}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>
+                  Tổng số chứng chỉ đang sở hữu:{" "}
+                </span>
+                <span style={{ color: "#d4a73a", fontWeight: 500 }}>
+                  {availableCertificates.length}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: "24px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Mã chứng chỉ
-          </label>
-          <input
-            placeholder="Nhập mã chứng chỉ (số)"
+          <select
             value={certificateId}
-            onChange={(e) => setCertificateId(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter" && !loading) {
-                handleFetchCertificate();
-              }
-            }}
-            disabled={loading}
+            onChange={handleCertificateSelect}
+            disabled={loadingCertificates || availableCertificates.length === 0}
             style={{
               width: "100%",
               padding: "12px 16px",
               fontSize: "16px",
-              border: "2px solid #e5e7eb",
+              border: "2px solid rgba(212, 167, 58, 0.3)",
               borderRadius: "8px",
               outline: "none",
               transition: "border-color 0.2s",
               boxSizing: "border-box",
-              backgroundColor: loading ? "#f3f4f6" : "#ffffff",
-              cursor: loading ? "not-allowed" : "text",
+              backgroundColor:
+                loadingCertificates || availableCertificates.length === 0
+                  ? "#0b0b0b"
+                  : "#1a1a1a",
+              color: "#b3b3b3",
+              cursor:
+                loadingCertificates || availableCertificates.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+              appearance: "none",
+              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23d4a73a' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 16px center",
+              paddingRight: "40px",
             }}
             onFocus={(e) => {
-              if (!loading) {
-                e.target.style.borderColor = "#3b82f6";
+              if (!loadingCertificates && availableCertificates.length > 0) {
+                e.target.style.borderColor = "#d4a73a";
               }
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = "#e5e7eb";
+              e.target.style.borderColor = "rgba(212, 167, 58, 0.3)";
             }}
-          />
+          >
+            <option value="" disabled>
+              Chọn chứng chỉ cần thu hồi
+            </option>
+            {availableCertificates.map((cert) => (
+              <option key={cert.certificateId} value={cert.certificateId}>
+                {cert.certificateName} (ID: {cert.certificateId})
+              </option>
+            ))}
+          </select>
         </div>
 
-        <button
-          onClick={handleFetchCertificate}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "14px 24px",
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "#ffffff",
-            backgroundColor: loading ? "#9ca3af" : "#3b82f6",
-            border: "none",
-            borderRadius: "8px",
-            cursor: loading ? "not-allowed" : "pointer",
-            transition: "background-color 0.2s, transform 0.1s",
-            boxShadow: loading
-              ? "none"
-              : "0 2px 4px rgba(59, 130, 246, 0.3)",
-            marginBottom: "24px",
-          }}
-          onMouseEnter={(e) => {
-            if (!loading) {
-              e.target.style.backgroundColor = "#2563eb";
-              e.target.style.transform = "translateY(-1px)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!loading) {
-              e.target.style.backgroundColor = "#3b82f6";
-              e.target.style.transform = "translateY(0)";
-            }
-          }}
-        >
-          {loading ? "Đang tải..." : "Tải thông tin chứng chỉ"}
-        </button>
-
-        {/* Admin Status Message */}
-        {!checkingAdmin && !isAdmin && (
+        {info && (
           <div
             style={{
               marginBottom: "24px",
               padding: "16px",
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fecaca",
+              backgroundColor: "rgba(212, 167, 58, 0.1)",
+              border: "1px solid rgba(212, 167, 58, 0.3)",
               borderRadius: "8px",
-              color: "#dc2626",
+              color: "#f5c56b",
               textAlign: "center",
               fontSize: "15px",
               fontWeight: 500,
             }}
           >
-            ⚠️ Chỉ admin mới có quyền thu hồi chứng chỉ
+            {info}
           </div>
         )}
 
@@ -354,29 +421,29 @@ export default function Revoke() {
               marginBottom: "24px",
               padding: "16px",
               backgroundColor: message.includes("✅")
-                ? "#f0fdf4"
+                ? "rgba(16, 185, 129, 0.1)"
                 : message.includes("❌")
-                ? "#fef2f2"
+                ? "rgba(220, 38, 38, 0.1)"
                 : message.includes("⚠️")
-                ? "#fffbeb"
-                : "#eff6ff",
+                ? "rgba(212, 167, 58, 0.1)"
+                : "rgba(212, 167, 58, 0.1)",
               border: `1px solid ${
                 message.includes("✅")
-                  ? "#bbf7d0"
+                  ? "rgba(16, 185, 129, 0.3)"
                   : message.includes("❌")
-                  ? "#fecaca"
+                  ? "rgba(220, 38, 38, 0.3)"
                   : message.includes("⚠️")
-                  ? "#fde68a"
-                  : "#bfdbfe"
+                  ? "rgba(212, 167, 58, 0.3)"
+                  : "rgba(212, 167, 58, 0.3)"
               }`,
               borderRadius: "8px",
               color: message.includes("✅")
-                ? "#16a34a"
+                ? "#10b981"
                 : message.includes("❌")
-                ? "#dc2626"
+                ? "#f87171"
                 : message.includes("⚠️")
-                ? "#d97706"
-                : "#2563eb",
+                ? "#f5c56b"
+                : "#f5c56b",
               textAlign: "center",
               fontSize: "15px",
               fontWeight: 500,
@@ -392,9 +459,9 @@ export default function Revoke() {
             style={{
               marginBottom: "24px",
               padding: "24px",
-              backgroundColor: "#f9fafb",
+              backgroundColor: "#1a1a1a",
               borderRadius: "8px",
-              border: "1px solid #e5e7eb",
+              border: "1px solid rgba(212, 167, 58, 0.2)",
             }}
           >
             <div
@@ -410,7 +477,7 @@ export default function Revoke() {
                   margin: 0,
                   fontSize: "20px",
                   fontWeight: 600,
-                  color: "#1f2937",
+                  color: "#d4a73a",
                 }}
               >
                 Thông tin chứng chỉ
@@ -422,9 +489,10 @@ export default function Revoke() {
                   fontSize: "13px",
                   fontWeight: 600,
                   backgroundColor: certificateData.revoked
-                    ? "#fef2f2"
-                    : "#f0fdf4",
-                  color: certificateData.revoked ? "#dc2626" : "#16a34a",
+                    ? "rgba(220, 38, 38, 0.2)"
+                    : "rgba(16, 185, 129, 0.2)",
+                  color: certificateData.revoked ? "#f87171" : "#10b981",
+                  border: `1px solid ${certificateData.revoked ? "rgba(220, 38, 38, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
                 }}
               >
                 {certificateData.revoked ? "❌ Đã thu hồi" : "✅ Hợp lệ"}
@@ -443,13 +511,13 @@ export default function Revoke() {
                   display: "flex",
                   justifyContent: "space-between",
                   paddingBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid rgba(212, 167, 58, 0.2)",
                 }}
               >
-                <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>
                   Mã chứng chỉ:
                 </span>
-                <span style={{ color: "#1f2937", fontWeight: 500 }}>
+                <span style={{ color: "#d4a73a", fontWeight: 500 }}>
                   {certificateData.certificateId}
                 </span>
               </div>
@@ -458,11 +526,11 @@ export default function Revoke() {
                   display: "flex",
                   justifyContent: "space-between",
                   paddingBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid rgba(212, 167, 58, 0.2)",
                 }}
               >
-                <span style={{ fontWeight: 600, color: "#6b7280" }}>Mã SV:</span>
-                <span style={{ color: "#1f2937" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>Mã SV:</span>
+                <span style={{ color: "#b3b3b3" }}>
                   {certificateData.studentId}
                 </span>
               </div>
@@ -471,11 +539,11 @@ export default function Revoke() {
                   display: "flex",
                   justifyContent: "space-between",
                   paddingBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid rgba(212, 167, 58, 0.2)",
                 }}
               >
-                <span style={{ fontWeight: 600, color: "#6b7280" }}>Tên:</span>
-                <span style={{ color: "#1f2937" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>Tên:</span>
+                <span style={{ color: "#b3b3b3" }}>
                   {certificateData.studentName}
                 </span>
               </div>
@@ -484,13 +552,13 @@ export default function Revoke() {
                   display: "flex",
                   justifyContent: "space-between",
                   paddingBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid rgba(212, 167, 58, 0.2)",
                 }}
               >
-                <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>
                   Chứng chỉ:
                 </span>
-                <span style={{ color: "#1f2937" }}>
+                <span style={{ color: "#d4a73a" }}>
                   {certificateData.certificateName}
                 </span>
               </div>
@@ -499,13 +567,13 @@ export default function Revoke() {
                   display: "flex",
                   justifyContent: "space-between",
                   paddingBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
+                  borderBottom: "1px solid rgba(212, 167, 58, 0.2)",
                 }}
               >
-                <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                <span style={{ fontWeight: 600, color: "#b3b3b3" }}>
                   Ngày cấp:
                 </span>
-                <span style={{ color: "#1f2937" }}>
+                <span style={{ color: "#b3b3b3" }}>
                   {certificateData.issuedAt}
                 </span>
               </div>
@@ -514,47 +582,87 @@ export default function Revoke() {
         )}
 
         {/* Action Section */}
-        {certificateData && (
-          <button
-            onClick={handleRevoke}
-            disabled={!canRevoke}
-            style={{
-              width: "100%",
-              padding: "14px 24px",
-              fontSize: "16px",
-              fontWeight: 600,
-              color: "#ffffff",
-              backgroundColor: canRevoke ? "#dc2626" : "#9ca3af",
-              border: "none",
-              borderRadius: "8px",
-              cursor: canRevoke ? "pointer" : "not-allowed",
-              transition: "background-color 0.2s, transform 0.1s",
-              boxShadow: canRevoke
-                ? "0 2px 4px rgba(220, 38, 38, 0.3)"
-                : "none",
-            }}
-            onMouseEnter={(e) => {
-              if (canRevoke) {
-                e.target.style.backgroundColor = "#b91c1c";
-                e.target.style.transform = "translateY(-1px)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (canRevoke) {
-                e.target.style.backgroundColor = "#dc2626";
-                e.target.style.transform = "translateY(0)";
-              }
-            }}
-          >
-            {revoking
-              ? "Đang xử lý..."
-              : certificateData.revoked
-              ? "Chứng chỉ đã được thu hồi"
-              : !isAdmin
-              ? "Chỉ admin mới có quyền thu hồi"
-              : "Thu hồi chứng chỉ"}
-          </button>
-        )}
+        <button
+          onClick={handleRevoke}
+          disabled={
+            !canRevoke ||
+            !studentId.trim() ||
+            !certificateId.trim() ||
+            loadingCertificates
+          }
+          style={{
+            width: "100%",
+            padding: "14px 24px",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#0b0b0b",
+            backgroundColor:
+              !canRevoke ||
+              !studentId.trim() ||
+              !certificateId.trim() ||
+              loadingCertificates
+                ? "#9ca3af"
+                : "#d4a73a",
+            border: "none",
+            borderRadius: "8px",
+            cursor:
+              !canRevoke ||
+              !studentId.trim() ||
+              !certificateId.trim() ||
+              loadingCertificates
+                ? "not-allowed"
+                : "pointer",
+            transition: "background-color 0.2s, transform 0.1s",
+            boxShadow:
+              !canRevoke ||
+              !studentId.trim() ||
+              !certificateId.trim() ||
+              loadingCertificates
+                ? "none"
+                : "0 2px 4px rgba(212, 167, 58, 0.3)",
+            opacity:
+              !canRevoke ||
+              !studentId.trim() ||
+              !certificateId.trim() ||
+              loadingCertificates
+                ? 0.6
+                : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (
+              canRevoke &&
+              studentId.trim() &&
+              certificateId.trim() &&
+              !loadingCertificates
+            ) {
+              e.target.style.backgroundColor = "#b8941f";
+              e.target.style.transform = "translateY(-1px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (
+              canRevoke &&
+              studentId.trim() &&
+              certificateId.trim() &&
+              !loadingCertificates
+            ) {
+              e.target.style.backgroundColor = "#d4a73a";
+              e.target.style.transform = "translateY(0)";
+            }
+          }}
+        >
+          {revoking
+            ? "Đang xử lý..."
+            : !studentId.trim()
+            ? "Vui lòng nhập mã sinh viên"
+            : !certificateId.trim()
+            ? "Vui lòng chọn chứng chỉ"
+            : certificateData && certificateData.revoked
+            ? "Chứng chỉ đã được thu hồi"
+            : !isAdmin
+            ? "Chỉ admin mới có quyền thu hồi"
+            : "Thu hồi chứng chỉ"}
+        </button>
       </div>
     </div>
   );

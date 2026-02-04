@@ -5,6 +5,46 @@
   padding: 0;
 }
 
+/* CSS Variables cho bảng màu Đen - Vàng Gold cao cấp (giống Chú Bốn Barbershop) */
+:root {
+  --color-bg-primary: #0b0b0b; /* Nền chính - đen */
+  --color-bg-secondary: #111111; /* Nền phụ - đen xám */
+  --color-bg-tertiary: #1a1a1a; /* Nền card/form */
+  --color-bg-pattern: rgba(255, 255, 255, 0.02); /* Pattern nhẹ */
+  --color-gold-primary: #d4a73a; /* Vàng gold chính */
+  --color-gold-secondary: #c89b3c; /* Vàng gold phụ */
+  --color-gold-light: #f5c56b; /* Vàng gold nhạt */
+  --color-gold-hover: #b8941f; /* Vàng gold hover đậm */
+  --color-text-heading: #d4a73a; /* Text heading - vàng gold */
+  --color-text-primary: #b3b3b3; /* Text chính - xám nhạt */
+  --color-text-secondary: #ffffff; /* Text phụ - trắng (cho contrast) */
+  --color-success: #10B981; /* Emerald-500 - Success (đã xác thực) */
+}
+
+/* Background chung cho tất cả các trang - Đen với pattern */
+.app-background {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+  /* Pattern nhẹ với dấu cộng (+) */
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--color-bg-pattern) 2px,
+      var(--color-bg-pattern) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      var(--color-bg-pattern) 2px,
+      var(--color-bg-pattern) 4px
+    );
+  background-size: 40px 40px;
+  position: relative;
+}
 
 .logo {
   height: 6em;
